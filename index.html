@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Cofrinho - Reserva Financeira</title>
+    <style>
+        /* CSS: A aparência do seu app */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .app-container {
+            background-color: white;
+            width: 100%;
+            max-width: 450px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 24px;
+        }
+
+        /* O Porquinho / Totalizador */
+        .cofrinho-display {
+            background-color: #ffb6c1; 
+            color: #8b0000;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+
+        .cofrinho-display p {
+            margin: 0;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .cofrinho-display h2 {
+            margin: 10px 0 0 0;
+            font-size: 36px;
+        }
+
+        /* Área de Input */
+        .input-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: space-between;
+        }
+
+        select, input[type="number"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        select {
+            flex-grow: 1;
+            min-width: 100px;
+            background-color: #fff;
+        }
+
+        input[type="number"] {
+            flex-grow: 2;
+            min-width: 150px;
+        }
+
+        button.btn-principal {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+        }
+
+        button.btn-principal:hover {
+            background-color: #45a049;
+        }
+
+        /* Estilo dos Cards por Mês */
+        .historico {
+            text-align: left;
+            margin-top: 30px;
+        }
+
+        .mes-card {
+            background-color: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .mes-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+        }
+
+        .mes-header h3 {
+            margin: 0;
+            font-size: 18px;
+            color: #333;
+            text-transform: capitalize;
+        }
+
+        .mes-total {
+            font-weight: bold;
+            color: #27ae60;
+        }
+
+        .registro-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px dashed #eee;
+            font-size: 14px;
+        }
+        
+        .registro-item:last-child {
+            border-bottom: none;
+        }
+
+        .tag-pessoa {
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-right: 5px;
+        }
+
+        .tag-davi { background-color: #d0e8ff; color: #0056b3; }
+        .tag-denilma { background-color: #f3d0ff; color: #6a008a; }
+
+        .botoes-acao button {
+            background-color: #f39c12;
+            padding: 4px 8px;
+            font-size: 12px;
+            margin-left: 5px;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+        }
+        
+        .botoes-acao button.deletar {
+            background-color: #e74c3c;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <h1>🐷 Reserva do Casal</h1>
+
+        <div class="cofrinho-display">
+            <p>Total Acumulado</p>
+            <h2 id="total-display">R$ 0,00</h2>
+        </div>
+
+        <div class="input-area">
+            <select id="pessoa-input">
+                <option value="Davi">Davi</option>
+                <option value="Denilma">Denilma</option>
+            </select>
+            <input type="number" id="valor-input" placeholder="R$ 0,00" step="0.01" min="0">
+            <button id="btn-adicionar" class="btn-principal" onclick="adicionarRegistro()">Guardar Dinheiro</button>
+        </div>
+
+        <div class="historico" id="lista-registros">
+            </div>
+    </div>
+
+    <script>
+        // JavaScript: O "cérebro" do app
+
+        let registros = JSON.parse(localStorage.getItem('cofrinho_registros')) || [];
+        let idEditando = null;
+
+        // Função principal para atualizar a tela
+        function atualizarTela() {
+            const listaDiv = document.getElementById('lista-registros');
+            const totalDisplay = document.getElementById('total-display');
+            
+            listaDiv.innerHTML = ''; 
+            let totalGeral = 0;
+
+            // 1. Organiza os registros do mais novo para o mais velho
+            const registrosOrdenados = [...registros].map((reg, index) => ({...reg, originalIndex: index}))
+                                        .sort((a, b) => new Date(b.data) - new Date(a.data));
+
+            // 2. Agrupa os registros por Mês/Ano
+            const gruposPorMes = {};
+
+            registrosOrdenados.forEach((registro) => {
+                totalGeral += registro.valor; // Soma o total do cofrinho
+
+                const dataObj = new Date(registro.data);
+                // Pega o nome do mês e o ano (ex: "fevereiro de 2026")
+                const mesAno = dataObj.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+                if (!gruposPorMes[mesAno]) {
+                    gruposPorMes[mesAno] = { totalMes: 0, itens: [] };
+                }
+
+                gruposPorMes[mesAno].itens.push(registro);
+                gruposPorMes[mesAno].totalMes += registro.valor;
+            });
+
+            // 3. Cria os Cards na tela
+            for (const [mesAno, dadosDoMes] of Object.entries(gruposPorMes)) {
+                
+                // Cria a caixa principal do card
+                const cardDiv = document.createElement('div');
+                cardDiv.className = 'mes-card';
+
+                // Formata o total daquele mês
+                const totalMesFormatado = dadosDoMes.totalMes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+                // Cabeçalho do Card (Mês e Total do Mês)
+                let conteudoCard = `
+                    <div class="mes-header">
+                        <h3>${mesAno}</h3>
+                        <span class="mes-total">+ ${totalMesFormatado}</span>
+                    </div>
+                `;
+
+                // Adiciona cada registro dentro deste card
+                dadosDoMes.itens.forEach(registro => {
+                    const dataFormatada = new Date(registro.data).toLocaleDateString('pt-BR');
+                    const valorFormatado = registro.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    
+                    // Define a cor da tag dependendo de quem foi
+                    const pessoa = registro.pessoa || "Davi"; // Prevenção se houver registro antigo
+                    const classeTag = pessoa === 'Davi' ? 'tag-davi' : 'tag-denilma';
+
+                    conteudoCard += `
+                        <div class="registro-item">
+                            <div>
+                                <span class="tag-pessoa ${classeTag}">${pessoa}</span>
+                                <span>${dataFormatada} - <strong>${valorFormatado}</strong></span>
+                            </div>
+                            <div class="botoes-acao">
+                                <button onclick="prepararEdicao(${registro.originalIndex})">✎</button>
+                                <button class="deletar" onclick="deletarRegistro(${registro.originalIndex})">X</button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                cardDiv.innerHTML = conteudoCard;
+                listaDiv.appendChild(cardDiv);
+            }
+
+            // Atualiza o valor total no porquinho
+            totalDisplay.innerText = totalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+            // Salva os dados
+            localStorage.setItem('cofrinho_registros', JSON.stringify(registros));
+        }
+
+        // Função para adicionar ou salvar edição
+        function adicionarRegistro() {
+            const inputValor = document.getElementById('valor-input');
+            const inputPessoa = document.getElementById('pessoa-input');
+            
+            const valor = parseFloat(inputValor.value);
+            const pessoa = inputPessoa.value;
+
+            if (isNaN(valor) || valor <= 0) {
+                alert("Por favor, digite um valor válido!");
+                return;
+            }
+
+            if (idEditando !== null) {
+                registros[idEditando].valor = valor;
+                registros[idEditando].pessoa = pessoa;
+                idEditando = null; 
+                document.getElementById('btn-adicionar').innerText = "Guardar Dinheiro";
+            } else {
+                registros.push({
+                    pessoa: pessoa,
+                    valor: valor,
+                    data: new Date().toISOString()
+                });
+            }
+
+            inputValor.value = ''; 
+            atualizarTela();
+        }
+
+        // Função para preparar a edição
+        function prepararEdicao(index) {
+            const registro = registros[index];
+            
+            document.getElementById('valor-input').value = registro.valor; 
+            
+            // Tenta selecionar a pessoa (se for um registro muito antigo sem pessoa, ignora o erro)
+            if(registro.pessoa) {
+                document.getElementById('pessoa-input').value = registro.pessoa;
+            }
+
+            idEditando = index; 
+            document.getElementById('btn-adicionar').innerText = "Salvar Edição"; 
+            document.getElementById('valor-input').focus();
+        }
+
+        // Função para deletar
+        function deletarRegistro(index) {
+            if(confirm("Tem certeza que deseja apagar este registro?")) {
+                registros.splice(index, 1); 
+                atualizarTela();
+            }
+        }
+
+        atualizarTela();
+    </script>
+</body>
+</html>
